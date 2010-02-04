@@ -548,9 +548,8 @@ bson_buffer * bson_append_element( bson_buffer * b, const char * name_or_null, c
         bson_ensure_space(b, size);
         bson_append(b, elem->cur, size);
     }else{
-        int data_size = size - 1 - strlen(bson_iterator_key(elem));
+        int data_size = size - 2 - strlen(bson_iterator_key(elem));
         bson_append_estart(b, elem->cur[0], name_or_null, data_size);
-        bson_append(b, name_or_null, strlen(name_or_null));
         bson_append(b, bson_iterator_value(elem), data_size);
     }
 
