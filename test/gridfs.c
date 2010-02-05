@@ -73,5 +73,21 @@ int main() {
         exit(1);
     }
 
+    if (!gridfs_seek(file, 2, SEEK_SET) || gridfs_tell(file) != 2) {
+        printf("failed seek\n");
+        exit(1);
+    }
+
+    if (gridfs_read(data, 11, file) != 11) {
+        printf("failed read after seek\n");
+        exit(1);
+    }
+    data[11] = '\0';
+
+    if (strcmp(data, "llo, world!")) {
+        printf("read bad data after seek %s\n", data);
+        exit(1);
+    }
+
     return 0;
 }

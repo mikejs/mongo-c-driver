@@ -19,7 +19,8 @@ typedef struct {
 } gridfs;
 
 typedef struct {
-    size_t length, chunk_size, num_chunks, cur_chunk, pos;
+    size_t length, chunk_size, num_chunks, cur_chunk;
+    off_t pos;
     char *filename;
     char md5[33];
     char content_type[256];
@@ -40,7 +41,9 @@ size_t gridfs_read(char *ptr, size_t size, gridfs_file *file);
 
 size_t gridfs_write(const char *ptr, size_t size, gridfs_file *file);
 
-int gridfs_seek(gridfs_file *file, long offset, int whence);
+bson_bool_t gridfs_seek(gridfs_file *file, off_t offset, int origin);
+
+off_t gridfs_tell(gridfs_file *file);
 
 void gridfs_flush(gridfs_file *file);
 

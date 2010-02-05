@@ -290,7 +290,7 @@ size_t gridfs_read(char *ptr, size_t size, gridfs_file *file) {
             gridfs_read_chunk(file, chunk_num);
         }
 
-        memcpy(ptr, file->data, to_read);
+        memcpy(ptr, file->data + (pos % chunk_size), to_read);
 
         have_read += to_read;
         ptr += to_read;
@@ -417,7 +417,43 @@ gridfs_file* gridfs_open_readonly(gridfs *gridfs, const char *name) {
         return NULL;
     }
 
+    file->mode = 'r';
+
     return file;
+}
+
+bson_bool_t gridfs_seek(gridfs_file *file, off_t offset, int origin) {
+    size_t pos = file->pos, length = file->length, chunk;
+
+    if (file->mode != 'r') {
+        return 0;
+    }
+
+    if (origin == SEEK_SET) {
+        pos = offset;
+    } else if(origin == SEEK_CUR) {
+        pos += offset;
+    } else if(origin == SEEK_END) {
+        pos = length - 1 - offset;
+    } else {
+        return 0;
+    }
+
+    if (pos > length) {
+        return 0;
+    }
+
+    chunk = pos / file->chunk_size;
+    if (chunk != file->cur_chunk && !gridfs_read_chunk(file, chunk)) {
+            return 0;
+    }
+
+    file->pos = pos;
+    return 1;
+}
+
+off_t gridfs_tell(gridfs_file *f) {
+    return f->pos;
 }
 
 void gridfs_close(gridfs_file *f) {
