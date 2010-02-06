@@ -22,32 +22,32 @@ void gridfs_flush_chunk(gridfs_file *file);
 bson_bool_t gridfs_connect(gridfs *gridfs, mongo_connection *conn,
                            const char *db_name) {
     const char prefix[] = "fs";  /* TODO: allow custom prefix */
-    size_t dblen = strlen(db_name);
-    size_t preflen = strlen(prefix);
-    size_t nslen = dblen + preflen + 1;
+    size_t dblen = strlen(db_name) + 1;
+    size_t preflen = strlen(prefix) + 1;
+    size_t nslen = dblen + preflen;
     char *ns;
     bson_buffer bb;
     bson b;
     bson_bool_t success = 0;
 
-    ns = malloc(nslen + 1);
+    ns = malloc(nslen);
     strncpy(ns, db_name, dblen);
     strncat(ns, ".", 1);
-    strncat(ns, prefix, preflen);
+    strncat(ns, prefix, preflen - 1);
 
     gridfs->conn = conn;
 
-    gridfs->db_name = malloc(dblen + 1);
+    gridfs->db_name = malloc(dblen);
     strncpy(gridfs->db_name, db_name, dblen);
 
-    gridfs->prefix = malloc(preflen + 1);
+    gridfs->prefix = malloc(preflen);
     strncpy(gridfs->prefix, prefix, preflen);
 
-    gridfs->file_ns = malloc(nslen + 6 + 1);
+    gridfs->file_ns = malloc(nslen);
     strncpy(gridfs->file_ns, ns, nslen);
     strncat(gridfs->file_ns, ".files", 6);
 
-    gridfs->chunk_ns = malloc(nslen + 7 + 1);
+    gridfs->chunk_ns = malloc(nslen + 7);
     strncpy(gridfs->chunk_ns, ns, nslen);
     strncat(gridfs->chunk_ns, ".chunks", 7);
 
@@ -341,7 +341,7 @@ gridfs_file* gridfs_open_readonly(gridfs *gridfs, const char *name) {
     bson b, out;
     bson_iterator it;
     gridfs_file *file;
-    size_t chunk_size, length;
+    size_t chunk_size, length, flen;
     char *data, *filename;
 
     bson_buffer_init(&bb);
@@ -368,7 +368,8 @@ gridfs_file* gridfs_open_readonly(gridfs *gridfs, const char *name) {
 
     file = calloc(1, sizeof(gridfs_file));
     data = calloc(MIN(length, chunk_size), sizeof(char));
-    filename = malloc(strlen(name));
+    flen = strlen(name) + 1;
+    filename = malloc(flen);
     if (file == NULL || data == NULL || filename == NULL) {
         bson_destroy(&out);
         free(file);
@@ -379,7 +380,7 @@ gridfs_file* gridfs_open_readonly(gridfs *gridfs, const char *name) {
 
     file->chunk_size = chunk_size;
     file->length = length;
-    strcpy(filename, name);
+    strncpy(filename, name, flen);
     file->filename = filename;
     file->data = data;
     file->gridfs = gridfs;
