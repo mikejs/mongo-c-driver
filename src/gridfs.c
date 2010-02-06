@@ -15,12 +15,35 @@
 #define MAX(a,b) ( (a) > (b) ? (a) : (b) )
 #endif
 
-gridfs_file* gridfs_open_readonly(gridfs *gridfs, const char *name);
-bson_bool_t gridfs_read_chunk(gridfs_file *file, size_t n);
-void gridfs_flush_chunk(gridfs_file *file);
+#define DEFAULT_CHUNK_SIZE 262144
 
-bson_bool_t gridfs_connect(gridfs *gridfs, mongo_connection *conn,
-                           const char *db_name) {
+struct gridfs_t {
+    mongo_connection *conn;
+    char *db_name;
+    char *prefix;
+    char *file_ns;
+    char *chunk_ns;
+};
+
+struct gridfs_file_t {
+    size_t length, chunk_size, num_chunks, cur_chunk;
+    off_t pos;
+    char *filename;
+    char md5[33];
+    char content_type[256];
+    bson_oid_t id;
+    time_t upload_date;
+    bson b;
+    char *data;
+    gridfs gridfs;
+    char mode;
+};
+
+gridfs_file gridfs_open_readonly(gridfs gridfs, const char *name);
+bson_bool_t gridfs_read_chunk(gridfs_file file, size_t n);
+void gridfs_flush_chunk(gridfs_file file);
+
+gridfs gridfs_connect(mongo_connection *conn, const char *db_name) {
     const char prefix[] = "fs";  /* TODO: allow custom prefix */
     size_t dblen = strlen(db_name) + 1;
     size_t preflen = strlen(prefix) + 1;
@@ -29,6 +52,9 @@ bson_bool_t gridfs_connect(gridfs *gridfs, mongo_connection *conn,
     bson_buffer bb;
     bson b;
     bson_bool_t success = 0;
+    gridfs gridfs;
+
+    gridfs = malloc(sizeof(struct gridfs_t));
 
     ns = malloc(nslen);
     strncpy(ns, db_name, dblen);
@@ -51,8 +77,8 @@ bson_bool_t gridfs_connect(gridfs *gridfs, mongo_connection *conn,
     strncpy(gridfs->chunk_ns, ns, nslen);
     strncat(gridfs->chunk_ns, ".chunks", 7);
 
-    success |= mongo_create_simple_index(conn, gridfs->file_ns,
-                                         "filename", 0, NULL);
+    success = mongo_create_simple_index(conn, gridfs->file_ns,
+                                        "filename", 0, NULL);
 
     bson_buffer_init(&bb);
     bson_append_int(&bb, "files_id", 1);
@@ -61,86 +87,34 @@ bson_bool_t gridfs_connect(gridfs *gridfs, mongo_connection *conn,
 
     success |= mongo_create_index(conn, gridfs->chunk_ns, &b, 0, NULL);
 
+    free(ns);
     bson_destroy(&b);
 
-    return success;
+    if (!success) {
+        gridfs_disconnect(gridfs);
+        return NULL;
+    }
+
+    return gridfs;
 }
 
-bson_bool_t gridfs_store_file(gridfs *gridfs, const char *data, size_t length,
-                              const char *name, const char *content_type) {
-
-    bson_buffer bb;
-    bson_oid_t file_oid;
-    bson b, out;
-    bson_iterator it;
-    int chunk_num = 0;
-    time_t now;
-    const char *end = data + length;
-
-    bson_oid_gen(&file_oid);
-
-    while (data < end) {
-        int chunk_len = MIN(DEFAULT_CHUNK_SIZE, (unsigned)(end-data));
-
-        bson_buffer_init(&bb);
-        bson_append_new_oid(&bb, "_id");
-        bson_append_oid(&bb, "files_id", &file_oid);
-        bson_append_int(&bb, "n", chunk_num);
-        bson_append_binary(&bb, "data", 0x02, data, chunk_len);
-
-        bson_from_buffer(&b, &bb);
-        mongo_insert(gridfs->conn, gridfs->chunk_ns, &b);
-        bson_destroy(&b);
-
-        chunk_num++;
-        data += chunk_len;
-    }
-
-    bson_buffer_init(&bb);
-    bson_append_oid(&bb, "filemd5", &file_oid);
-    bson_append_string(&bb, "root", gridfs->prefix);
-    bson_from_buffer(&b, &bb);
-    if (!mongo_run_command(gridfs->conn, gridfs->db_name, &b, &out)) {
-        bson_destroy(&b);
-        return 0;
-    }
-    bson_destroy(&b);
-
-    if (!bson_find(&it, &out, "md5")) {
-        bson_destroy(&out);
-        return 0;
-    }
-
-    now = time(NULL);
-
-    bson_buffer_init(&bb);
-    bson_append_oid(&bb, "_id", &file_oid);
-    bson_append_string(&bb, "filename", name);
-    bson_append_int(&bb, "length", length);
-    bson_append_int(&bb, "chunkSize", DEFAULT_CHUNK_SIZE);
-    bson_append_string(&bb, "contentType", content_type);
-    bson_append_bson(&bb, "metadata", bson_empty(&b));
-    bson_append_time_t(&bb, "uploadDate", now);
-    bson_append_string(&bb, "md5", bson_iterator_string(&it));
-
-    bson_from_buffer(&b, &bb);
-    mongo_insert(gridfs->conn, gridfs->file_ns, &b);
-
-    bson_destroy(&out);
-    bson_destroy(&b);
-
-    return 1;
+void gridfs_disconnect(gridfs gridfs) {
+    free(gridfs->db_name);
+    free(gridfs->prefix);
+    free(gridfs->file_ns);
+    free(gridfs->chunk_ns);
+    free(gridfs);
 }
 
-gridfs_file* gridfs_open(gridfs *gridfs, const char *name, const char *mode) {
-    gridfs_file *f;
+gridfs_file gridfs_open(gridfs gridfs, const char *name, const char *mode) {
+    gridfs_file f;
     char *filename, *data;
 
     if (!strcmp(mode, "r")) {
         return gridfs_open_readonly(gridfs, name);
     } else if(!strcmp(mode, "w")) {
-        f = calloc(1, sizeof(gridfs_file));
-        filename = malloc(strlen(name));
+        f = calloc(1, sizeof(struct gridfs_file_t));
+        filename = malloc(strlen(name) + 1);
         data = malloc(DEFAULT_CHUNK_SIZE);
         if (f == NULL || filename == NULL || data == NULL) {
             free(f);
@@ -163,7 +137,7 @@ gridfs_file* gridfs_open(gridfs *gridfs, const char *name, const char *mode) {
     }
 }
 
-size_t gridfs_write(const char *ptr, size_t size, gridfs_file *file) {
+size_t gridfs_write(const char *ptr, size_t size, gridfs_file file) {
     size_t written, pos, chunk_size, length;
     char *data;
 
@@ -195,11 +169,11 @@ size_t gridfs_write(const char *ptr, size_t size, gridfs_file *file) {
     return written;
 }
 
-void gridfs_flush(gridfs_file *file) {
+void gridfs_flush(gridfs_file file) {
     bson_buffer bb;
     bson b, cond, out;
     bson_iterator it;
-    gridfs *gridfs = file->gridfs;
+    gridfs gridfs = file->gridfs;
 
     gridfs_flush_chunk(file);
 
@@ -241,7 +215,7 @@ void gridfs_flush(gridfs_file *file) {
     bson_destroy(&out);
 }
 
-void gridfs_flush_chunk(gridfs_file *file) {
+void gridfs_flush_chunk(gridfs_file file) {
     bson_buffer bb;
     bson b, cond;
     size_t size, chunk_size, length, cur_chunk;
@@ -271,7 +245,7 @@ void gridfs_flush_chunk(gridfs_file *file) {
     bson_destroy(&cond);
 }
 
-size_t gridfs_read(char *ptr, size_t size, gridfs_file *file) {
+size_t gridfs_read(char *ptr, size_t size, gridfs_file file) {
     size_t pos, chunk_size, have_read, length;
 
     length = file->length;
@@ -301,7 +275,7 @@ size_t gridfs_read(char *ptr, size_t size, gridfs_file *file) {
     return have_read;
 }
 
-bson_bool_t gridfs_read_chunk(gridfs_file *file, size_t n) {
+bson_bool_t gridfs_read_chunk(gridfs_file file, size_t n) {
     bson_buffer bb;
     bson b, out;
     bson_iterator it;
@@ -335,11 +309,11 @@ bson_bool_t gridfs_read_chunk(gridfs_file *file, size_t n) {
     return 1;
 }
 
-gridfs_file* gridfs_open_readonly(gridfs *gridfs, const char *name) {
+gridfs_file gridfs_open_readonly(gridfs gridfs, const char *name) {
     bson_buffer bb;
     bson b, out;
     bson_iterator it;
-    gridfs_file *file;
+    gridfs_file file;
     size_t chunk_size, length, flen;
     char *data, *filename;
 
@@ -365,7 +339,7 @@ gridfs_file* gridfs_open_readonly(gridfs *gridfs, const char *name) {
     }
     length = bson_iterator_long(&it);
 
-    file = calloc(1, sizeof(gridfs_file));
+    file = calloc(1, sizeof(struct gridfs_file_t));
     data = calloc(MIN(length, chunk_size), sizeof(char));
     flen = strlen(name) + 1;
     filename = malloc(flen);
@@ -419,7 +393,7 @@ gridfs_file* gridfs_open_readonly(gridfs *gridfs, const char *name) {
     return file;
 }
 
-bson_bool_t gridfs_seek(gridfs_file *file, off_t offset, int origin) {
+bson_bool_t gridfs_seek(gridfs_file file, off_t offset, int origin) {
     size_t pos = file->pos, length = file->length, chunk;
 
     if (file->mode != 'r') {
@@ -449,11 +423,11 @@ bson_bool_t gridfs_seek(gridfs_file *file, off_t offset, int origin) {
     return 1;
 }
 
-off_t gridfs_tell(gridfs_file *f) {
-    return f->pos;
+off_t gridfs_tell(gridfs_file file) {
+    return file->pos;
 }
 
-int gridfs_getc(gridfs_file *file) {
+int gridfs_getc(gridfs_file file) {
     char c[1];
 
     if(!gridfs_read(c, 1, file)) {
@@ -463,7 +437,7 @@ int gridfs_getc(gridfs_file *file) {
     return c[0];
 }
 
-char* gridfs_gets(char *string, size_t length, gridfs_file *file) {
+char* gridfs_gets(char *string, size_t length, gridfs_file file) {
     int c = EOF;
     char *sp = string;
 
@@ -484,12 +458,35 @@ char* gridfs_gets(char *string, size_t length, gridfs_file *file) {
     return string;
 }
 
-void gridfs_close(gridfs_file *f) {
-    if (f->mode == 'w') {
-        gridfs_flush(f);
+void gridfs_close(gridfs_file file) {
+    if (file->mode == 'w') {
+        gridfs_flush(file);
     }
-    bson_destroy(&f->b);
-    free(f->filename);
-    free(f->data);
-    free(f);
+    bson_destroy(&file->b);
+    free(file->filename);
+    free(file->data);
+    free(file);
+}
+
+const char* gridfs_get_md5(gridfs_file file) {
+    return file->md5;
+}
+
+const char* gridfs_get_filename(gridfs_file file) {
+    return file->filename;
+}
+
+const char* gridfs_get_content_type(gridfs_file file) {
+    return file->content_type;
+}
+
+void gridfs_set_filename(const char *name, gridfs_file file) {
+    size_t flen = strlen(name) + 1;
+    free(file->filename);
+    file->filename = malloc(flen);
+    strncpy(file->filename, name, flen);
+}
+
+void gridfs_set_content_type(const char *ctype, gridfs_file file) {
+    strncpy(file->content_type, ctype, 255);
 }

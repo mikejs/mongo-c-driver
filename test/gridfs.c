@@ -6,8 +6,8 @@
 
 int main() {
     mongo_connection conn[1];
-    gridfs gridfs[1];
-    gridfs_file *file;
+    gridfs gridfs;
+    gridfs_file file;
     mongo_connection_options opts;
     bson b;
     char data[14];
@@ -33,7 +33,8 @@ int main() {
         exit(1);
     }
 
-    if (!gridfs_connect(gridfs, conn, "test")) {
+
+    if ((gridfs = gridfs_connect(conn, "test")) == NULL) {
         printf("failed gridfs creation\n");
         exit(1);
     }
@@ -57,7 +58,7 @@ int main() {
         exit(1);
     }
 
-    if (strcmp(md5, file->md5)) {
+    if (strcmp(md5, gridfs_get_md5(file))) {
         printf("md5 doesn't match\n");
         exit(1);
     }
@@ -120,6 +121,7 @@ int main() {
     }
 
     gridfs_close(file);
+    gridfs_disconnect(gridfs);
 
     return 0;
 }
