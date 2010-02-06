@@ -341,7 +341,7 @@ gridfs_file* gridfs_open_readonly(gridfs *gridfs, const char *name) {
     bson b, out;
     bson_iterator it;
     gridfs_file *file;
-    size_t len;
+    size_t chunk_size, length;
     char *data, *filename;
 
     bson_buffer_init(&bb);
@@ -358,12 +358,16 @@ gridfs_file* gridfs_open_readonly(gridfs *gridfs, const char *name) {
         bson_destroy(&out);
         return NULL;
     }
+    chunk_size = bson_iterator_long(&it);
 
-    len = bson_iterator_long(&it);
+    if (!bson_find(&it, &out, "length")) {
+        bson_destroy(&out);
+        return NULL;
+    }
+    length = bson_iterator_long(&it);
 
-    file = malloc(sizeof(gridfs_file));
-    data = malloc(len);
-    memset(data, 0, len);
+    file = calloc(1, sizeof(gridfs_file));
+    data = calloc(MIN(length, chunk_size), sizeof(char));
     filename = malloc(strlen(name));
     if (file == NULL || data == NULL || filename == NULL) {
         bson_destroy(&out);
@@ -373,8 +377,8 @@ gridfs_file* gridfs_open_readonly(gridfs *gridfs, const char *name) {
         return NULL;
     }
 
-    memset(file, 0, sizeof(gridfs_file));
-    file->chunk_size = len;
+    file->chunk_size = chunk_size;
+    file->length = length;
     strcpy(filename, name);
     file->filename = filename;
     file->data = data;
@@ -386,13 +390,6 @@ gridfs_file* gridfs_open_readonly(gridfs *gridfs, const char *name) {
         return NULL;
     }
     strncpy(file->md5, bson_iterator_string(&it), 32);
-
-    if (!bson_find(&it, &out, "length")) {
-        bson_destroy(&out);
-        gridfs_close(file);
-        return NULL;
-    }
-    file->length = bson_iterator_long(&it);
 
     if (!bson_find(&it, &out, "_id") ||
         bson_iterator_type(&it) != bson_oid) {
