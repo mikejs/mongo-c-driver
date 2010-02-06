@@ -31,9 +31,11 @@ char* gridfs_gets(char *string, size_t length, gridfs_file file);
 const char* gridfs_get_md5(gridfs_file file);
 const char* gridfs_get_filename(gridfs_file file);
 const char* gridfs_get_content_type(gridfs_file file);
+time_t gridfs_get_upload_date(gridfs_file file);
 
 void gridfs_set_filename(const char *name, gridfs_file file);
 void gridfs_set_content_type(const char *ctype, gridfs_file file);
+void gridfs_set_upload_date(time_t udate, gridfs_file file);
 
 MONGO_EXTERN_C_END
 

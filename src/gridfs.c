@@ -201,7 +201,7 @@ void gridfs_flush(gridfs_file file) {
     bson_append_oid(&bb, "_id", &file->id);
     bson_append_string(&bb, "filename", file->filename);
     bson_append_string(&bb, "contentType", file->content_type);
-    bson_append_time_t(&bb, "uploadDate", time(NULL));
+    bson_append_time_t(&bb, "uploadDate", file->upload_date || time(NULL));
     bson_append_long(&bb, "length", file->length);
     bson_append_long(&bb, "chunkSize", file->chunk_size);
     bson_append_string(&bb, "md5", bson_iterator_string(&it));
@@ -480,6 +480,16 @@ const char* gridfs_get_content_type(gridfs_file file) {
     return file->content_type;
 }
 
+time_t gridfs_get_upload_date(gridfs_file file) {
+    time_t udate = file->upload_date;
+
+    if (udate == 0) {
+        return -1;
+    }
+
+    return udate;
+}
+
 void gridfs_set_filename(const char *name, gridfs_file file) {
     size_t flen = strlen(name) + 1;
     free(file->filename);
@@ -489,4 +499,8 @@ void gridfs_set_filename(const char *name, gridfs_file file) {
 
 void gridfs_set_content_type(const char *ctype, gridfs_file file) {
     strncpy(file->content_type, ctype, 255);
+}
+
+void gridfs_set_upload_date(time_t udate, gridfs_file file) {
+    file->upload_date = udate;
 }
