@@ -139,7 +139,7 @@ gridfs_file* gridfs_open(gridfs *gridfs, const char *name, const char *mode) {
     if (!strcmp(mode, "r")) {
         return gridfs_open_readonly(gridfs, name);
     } else if(!strcmp(mode, "w")) {
-        f = malloc(sizeof(gridfs_file));
+        f = calloc(1, sizeof(gridfs_file));
         filename = malloc(strlen(name));
         data = malloc(DEFAULT_CHUNK_SIZE);
         if (f == NULL || filename == NULL || data == NULL) {
@@ -215,7 +215,6 @@ void gridfs_flush(gridfs_file *file) {
     bson_destroy(&b);
 
     if (!bson_find(&it, &out, "md5")) {
-        printf("TSRATSRT\n");
         bson_destroy(&out);
         return;
     }
@@ -452,6 +451,37 @@ bson_bool_t gridfs_seek(gridfs_file *file, off_t offset, int origin) {
 
 off_t gridfs_tell(gridfs_file *f) {
     return f->pos;
+}
+
+int gridfs_getc(gridfs_file *file) {
+    char c[1];
+
+    if(!gridfs_read(c, 1, file)) {
+        return EOF;
+    }
+
+    return c[0];
+}
+
+char* gridfs_gets(char *string, size_t length, gridfs_file *file) {
+    int c = EOF;
+    char *sp = string;
+
+    while (--length && (c = gridfs_getc(file)) != EOF) {
+        *sp++ = (char)c;
+
+        if ((char)c == '\n') {
+            break;
+        }
+    }
+
+    if (c == EOF && sp == string) {
+        return NULL;
+    }
+
+    *sp = '\0';
+
+    return string;
 }
 
 void gridfs_close(gridfs_file *f) {

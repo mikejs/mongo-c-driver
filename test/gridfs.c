@@ -89,5 +89,37 @@ int main() {
         exit(1);
     }
 
+    gridfs_close(file);
+
+    file = gridfs_open(gridfs, "myFile2", "w");
+    gridfs_write("Line 1\nLine 2\nLine 3", 21, file);
+    gridfs_close(file);
+
+    file = gridfs_open(gridfs, "myFile2", "r");
+    gridfs_gets(data, 13, file);
+    if(strcmp(data, "Line 1\n")) {
+        printf("bad gridfs_gets %s\n", data);
+        exit(1);
+    }
+
+    gridfs_gets(data, 13, file);
+    if (strcmp(data, "Line 2\n")) {
+        printf("bad gridfs_gets\n");
+        exit(1);
+    }
+
+    gridfs_gets(data, 13, file);
+    if (strcmp(data, "Line 3")) {
+        printf("bad gridfs_gets\n");
+        exit(1);
+    }
+
+    if (gridfs_gets(data, 13, file) != NULL) {
+        printf("bad gridfs_gets\n");
+        exit(1);
+    }
+
+    gridfs_close(file);
+
     return 0;
 }

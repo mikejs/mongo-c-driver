@@ -45,6 +45,10 @@ bson_bool_t gridfs_seek(gridfs_file *file, off_t offset, int origin);
 
 off_t gridfs_tell(gridfs_file *file);
 
+int gridfs_getc(gridfs_file *file);
+
+char* gridfs_gets(char *string, size_t length, gridfs_file *file);
+
 void gridfs_flush(gridfs_file *file);
 
 void gridfs_close(gridfs_file *file);
