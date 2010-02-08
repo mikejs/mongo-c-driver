@@ -294,6 +294,13 @@ int64_t bson_iterator_long( const bson_iterator * i ){
         default: return 0;
     }
 }
+bson_timestamp_t bson_iterator_timestamp( const bson_iterator * i ){
+    if (bson_iterator_type(i) == bson_timestamp) {
+        return bson_iterator_long_raw(i);
+    }
+
+    return 0;
+}
 
 bson_bool_t bson_iterator_bool( const bson_iterator * i ){
     switch (bson_iterator_type(i)){
@@ -460,6 +467,11 @@ bson_buffer * bson_append_int( bson_buffer * b , const char * name , const int i
 bson_buffer * bson_append_long( bson_buffer * b , const char * name , const int64_t i ){
     if ( ! bson_append_estart( b , bson_long , name , 8 ) ) return 0;
     bson_append64( b , &i );
+    return b;
+}
+bson_buffer * bson_append_timestamp( bson_buffer * b,  const char * name , const bson_timestamp_t ts) {
+    if ( ! bson_append_estart( b , bson_timestamp , name , 8 ) ) return 0;
+    bson_append64( b , &ts );
     return b;
 }
 bson_buffer * bson_append_double( bson_buffer * b , const char * name , const double d ){
