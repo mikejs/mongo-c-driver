@@ -231,37 +231,6 @@ static gridfs_file gridfs_open_readonly(gridfs gridfs, const char *name) {
     return file;
 }
 
-size_t gridfs_write(const char *ptr, size_t size, gridfs_file file) {
-    size_t written, pos, chunk_size;
-    char *data;
-
-    written = 0;
-    pos = file->pos;
-    chunk_size = file->chunk_size;
-    data = file->data;
-
-    while (written < size) {
-        size_t len = MIN(chunk_size - (pos % chunk_size),
-                         size - written - (pos % chunk_size));
-
-        memcpy(data + (pos % chunk_size), ptr, len);
-
-        pos += len;
-        ptr += len;
-        written += len;
-        file->length = MAX(pos, file->length);
-
-        if (!(pos % chunk_size)) {
-            gridfs_flush_chunk(file);
-            file->cur_chunk++;
-        }
-    }
-
-    file->pos = pos;
-
-    return written;
-}
-
 void gridfs_flush(gridfs_file file) {
     bson_buffer bb;
     bson b, cond, out;
@@ -338,7 +307,16 @@ static void gridfs_flush_chunk(gridfs_file file) {
     bson_destroy(&cond);
 }
 
-size_t gridfs_read(char *ptr, size_t size, gridfs_file file) {
+void gridfs_close(gridfs_file file) {
+    if (file->mode == 'w') {
+        gridfs_flush(file);
+    }
+    free(file->filename);
+    free(file->data);
+    free(file);
+}
+
+size_t gridfs_read(gridfs_file file, char *ptr, size_t size) {
     size_t pos, chunk_size, have_read, length;
 
     length = file->length;
@@ -402,6 +380,37 @@ static bson_bool_t gridfs_read_chunk(gridfs_file file, size_t n) {
     return 1;
 }
 
+size_t gridfs_write(gridfs_file file, const char *ptr, size_t size) {
+    size_t written, pos, chunk_size;
+    char *data;
+
+    written = 0;
+    pos = file->pos;
+    chunk_size = file->chunk_size;
+    data = file->data;
+
+    while (written < size) {
+        size_t len = MIN(chunk_size - (pos % chunk_size),
+                         size - written - (pos % chunk_size));
+
+        memcpy(data + (pos % chunk_size), ptr, len);
+
+        pos += len;
+        ptr += len;
+        written += len;
+        file->length = MAX(pos, file->length);
+
+        if (!(pos % chunk_size)) {
+            gridfs_flush_chunk(file);
+            file->cur_chunk++;
+        }
+    }
+
+    file->pos = pos;
+
+    return written;
+}
+
 bson_bool_t gridfs_seek(gridfs_file file, off_t offset, int origin) {
     size_t pos = file->pos, length = file->length, chunk;
 
@@ -439,14 +448,14 @@ off_t gridfs_tell(gridfs_file file) {
 int gridfs_getc(gridfs_file file) {
     char c[1];
 
-    if(!gridfs_read(c, 1, file)) {
+    if(!gridfs_read(file, c, 1)) {
         return EOF;
     }
 
     return c[0];
 }
 
-char* gridfs_gets(char *string, size_t length, gridfs_file file) {
+char* gridfs_gets(gridfs_file file, char *string, size_t length) {
     int c = EOF;
     char *sp = string;
 
@@ -465,15 +474,6 @@ char* gridfs_gets(char *string, size_t length, gridfs_file file) {
     *sp = '\0';
 
     return string;
-}
-
-void gridfs_close(gridfs_file file) {
-    if (file->mode == 'w') {
-        gridfs_flush(file);
-    }
-    free(file->filename);
-    free(file->data);
-    free(file);
 }
 
 const char* gridfs_get_md5(gridfs_file file) {
@@ -498,30 +498,30 @@ time_t gridfs_get_upload_date(gridfs_file file) {
     return udate;
 }
 
+size_t gridfs_get_length(gridfs_file file) {
+    return file->length;
+}
+
 const bson* gridfs_get_metadata(gridfs_file file) {
     return &file->metadata;
 }
 
-void gridfs_set_filename(const char *name, gridfs_file file) {
+void gridfs_set_filename(gridfs_file file, const char *name) {
     size_t flen = strlen(name) + 1;
     free(file->filename);
     file->filename = malloc(flen);
     strncpy(file->filename, name, flen);
 }
 
-void gridfs_set_content_type(const char *ctype, gridfs_file file) {
+void gridfs_set_content_type(gridfs_file file, const char *ctype) {
     strncpy(file->content_type, ctype, 255);
 }
 
-void gridfs_set_upload_date(time_t udate, gridfs_file file) {
+void gridfs_set_upload_date(gridfs_file file, time_t udate) {
     file->upload_date = udate;
 }
 
-size_t gridfs_get_length(gridfs_file file) {
-    return file->length;
-}
-
-void gridfs_set_metadata(const bson *metadata, gridfs_file file) {
+void gridfs_set_metadata(gridfs_file file, const bson *metadata) {
     bson_destroy(&file->metadata);
     bson_copy(&file->metadata, metadata);
 }

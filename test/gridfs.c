@@ -47,30 +47,30 @@ int main() {
     ASSERT((gridfs = gridfs_connect(conn, "test")) != NULL);
 
     ASSERT((file = gridfs_open(gridfs, "myFile", "w")) != NULL);
-    ASSERT(gridfs_write("Hello, world!", 13, file) == 13);
+    ASSERT(gridfs_write(file, "Hello, world!", 13) == 13);
 
     bson_buffer_init(&bb);
     bson_append_string(&bb, "str", "some metadata");
     bson_append_int(&bb, "int", 42);
     bson_from_buffer(&b, &bb);
-    gridfs_set_metadata(&b, file);
+    gridfs_set_metadata(file, &b);
     bson_destroy(&b);
 
-    gridfs_set_content_type("text/plain", file);
+    gridfs_set_content_type(file, "text/plain");
 
     gridfs_close(file);
 
     ASSERT((file = gridfs_open(gridfs, "myFile", "r")) != NULL);
     ASSERT(strcmp(md5, gridfs_get_md5(file)) == 0);
 
-    ASSERT(gridfs_read(data, 13, file) == 13);
+    ASSERT(gridfs_read(file, data, 13) == 13);
     data[13] = '\0';
     ASSERT(strcmp(data, "Hello, world!") == 0);
 
     ASSERT(gridfs_seek(file, 2, SEEK_SET));
     ASSERT(gridfs_tell(file) == 2);
 
-    ASSERT(gridfs_read(data, 11, file) == 11);
+    ASSERT(gridfs_read(file, data, 11) == 11);
     data[11] = '\0';
     ASSERT(strcmp(data, "llo, world!") == 0);
 
@@ -85,32 +85,32 @@ int main() {
     gridfs_close(file);
 
     ASSERT((file = gridfs_open(gridfs, "myFile2", "w")) != NULL);
-    ASSERT(gridfs_write("Line 1\nLine 2\nLine 3", 21, file) == 21);
+    ASSERT(gridfs_write(file, "Line 1\nLine 2\nLine 3", 21) == 21);
     gridfs_close(file);
 
     ASSERT((file = gridfs_open(gridfs, "myFile2", "r")) != NULL);
-    ASSERT(gridfs_gets(data, 13, file) != NULL);
+    ASSERT(gridfs_gets(file, data, 13) != NULL);
     ASSERT(strcmp(data, "Line 1\n") == 0);
 
-    ASSERT(gridfs_gets(data, 13, file) != NULL);
+    ASSERT(gridfs_gets(file, data, 13) != NULL);
     ASSERT(strcmp(data, "Line 2\n") == 0);
 
-    ASSERT(gridfs_gets(data, 13, file) != NULL);
+    ASSERT(gridfs_gets(file, data, 13) != NULL);
     ASSERT(strcmp(data, "Line 3") == 0);
 
-    ASSERT(gridfs_gets(data, 13, file) == NULL);
+    ASSERT(gridfs_gets(file, data, 13) == NULL);
 
     gridfs_close(file);
 
     memset(big, 'a', BIG_LEN);
     ASSERT((file = gridfs_open(gridfs, "bigFile", "w")) != NULL);
-    ASSERT(gridfs_write(big, BIG_LEN, file) == BIG_LEN);
+    ASSERT(gridfs_write(file, big, BIG_LEN) == BIG_LEN);
     gridfs_close(file);
 
     memset(big2, 0, BIG_LEN);
     ASSERT((file = gridfs_open(gridfs, "bigFile", "r")) != NULL);
     ASSERT(gridfs_get_length(file) == BIG_LEN);
-    ASSERT(gridfs_read(big2, BIG_LEN, file) == BIG_LEN);
+    ASSERT(gridfs_read(file, big2, BIG_LEN) == BIG_LEN);
     ASSERT(memcmp(big, big2, BIG_LEN) == 0);
 
     gridfs_close(file);
