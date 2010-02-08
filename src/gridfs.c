@@ -36,6 +36,7 @@ struct gridfs_file_t {
     char *data;
     gridfs gridfs;
     char mode;
+    bson metadata;
 };
 
 static gridfs_file gridfs_open_readonly(gridfs gridfs, const char *name);
@@ -129,6 +130,7 @@ gridfs_file gridfs_open(gridfs gridfs, const char *name, const char *mode) {
         f->mode = 'w';
         f->gridfs = gridfs;
         bson_oid_gen(&f->id);
+        bson_empty(&f->metadata);
 
         return f;
     } else {
@@ -206,6 +208,15 @@ static gridfs_file gridfs_open_readonly(gridfs gridfs, const char *name) {
 
     if (bson_find(&it, &out, "uploadDate")) {
         file->upload_date = bson_iterator_time_t(&it);
+    }
+
+    if (bson_find(&it, &out, "metadata") &&
+        bson_iterator_type(&it) == bson_object) {
+        bson sub;
+        bson_iterator_subobject(&it, &sub);
+        bson_copy(&file->metadata, &sub);
+    } else {
+        bson_empty(&file->metadata);
     }
 
     bson_destroy(&out);
@@ -287,6 +298,7 @@ void gridfs_flush(gridfs_file file) {
     bson_append_long(&bb, "length", file->length);
     bson_append_long(&bb, "chunkSize", file->chunk_size);
     bson_append_string(&bb, "md5", bson_iterator_string(&it));
+    bson_append_bson(&bb, "metadata", &file->metadata);
     bson_from_buffer(&b, &bb);
 
     mongo_update(gridfs->conn, gridfs->file_ns, &cond, &b,
@@ -486,6 +498,10 @@ time_t gridfs_get_upload_date(gridfs_file file) {
     return udate;
 }
 
+const bson* gridfs_get_metadata(gridfs_file file) {
+    return &file->metadata;
+}
+
 void gridfs_set_filename(const char *name, gridfs_file file) {
     size_t flen = strlen(name) + 1;
     free(file->filename);
@@ -503,4 +519,9 @@ void gridfs_set_upload_date(time_t udate, gridfs_file file) {
 
 size_t gridfs_get_length(gridfs_file file) {
     return file->length;
+}
+
+void gridfs_set_metadata(const bson *metadata, gridfs_file file) {
+    bson_destroy(&file->metadata);
+    bson_copy(&file->metadata, metadata);
 }

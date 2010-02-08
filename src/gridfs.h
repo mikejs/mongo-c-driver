@@ -33,10 +33,12 @@ const char* gridfs_get_filename(gridfs_file file);
 const char* gridfs_get_content_type(gridfs_file file);
 time_t gridfs_get_upload_date(gridfs_file file);
 size_t gridfs_get_length(gridfs_file file);
+const bson* gridfs_get_metadata(gridfs_file file);
 
 void gridfs_set_filename(const char *name, gridfs_file file);
 void gridfs_set_content_type(const char *ctype, gridfs_file file);
 void gridfs_set_upload_date(time_t udate, gridfs_file file);
+void gridfs_set_metadata(const bson *metadata, gridfs_file file);
 
 MONGO_EXTERN_C_END
 
