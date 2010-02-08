@@ -5,6 +5,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <time.h>
+#include <inttypes.h>
 
 const int initialBufferSize = 128;
 
@@ -139,6 +140,9 @@ void bson_print_raw( const char * data , int depth ){
         switch ( t ){
         case bson_int: printf( "%d" , bson_iterator_int( &i ) ); break;
         case bson_double: printf( "%f" , bson_iterator_double( &i ) ); break;
+        case bson_timestamp:
+        case bson_date:
+        case bson_long: printf( "%"PRIi64, bson_iterator_long_raw( &i ) ); break;
         case bson_bool: printf( "%s" , bson_iterator_bool( &i ) ? "true" : "false" ); break;
         case bson_string: printf( "%s" , bson_iterator_string( &i ) ); break;
         case bson_null: printf( "null" ); break;
