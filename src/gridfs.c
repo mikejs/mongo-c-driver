@@ -504,3 +504,7 @@ void gridfs_set_content_type(const char *ctype, gridfs_file file) {
 void gridfs_set_upload_date(time_t udate, gridfs_file file) {
     file->upload_date = udate;
 }
+
+size_t gridfs_get_length(gridfs_file file) {
+    return file->length;
+}
