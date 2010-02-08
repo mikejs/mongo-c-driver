@@ -4,6 +4,14 @@
 #include <string.h>
 #include <stdlib.h>
 
+#define ASSERT(x) \
+    do{ \
+        if(!(x)){ \
+            printf("failed assert (%d): %s\n", __LINE__,  #x); \
+            return 1; \
+        }\
+    }while(0)
+
 int main() {
     mongo_connection conn[1];
     gridfs gridfs;
@@ -17,10 +25,7 @@ int main() {
     opts.host[254] = '\0';
     opts.port = 27017;
 
-    if (mongo_connect(conn, &opts)) {
-        printf("failed to connect\n");
-        exit(1);
-    }
+    ASSERT(!mongo_connect(conn, &opts));
 
     if ((!mongo_cmd_drop_collection(conn, "test", "fs.chunks", NULL)
         && mongo_find_one(conn, "test.fs.chunks", bson_empty(&b),
@@ -33,92 +38,42 @@ int main() {
         exit(1);
     }
 
+    ASSERT((gridfs = gridfs_connect(conn, "test")) != NULL);
 
-    if ((gridfs = gridfs_connect(conn, "test")) == NULL) {
-        printf("failed gridfs creation\n");
-        exit(1);
-    }
-
-    file = gridfs_open(gridfs, "myFile", "w");
-    if (file == NULL) {
-        printf("failed opening myFile for writing\n");
-        exit(1);
-    }
-
-    if (gridfs_write("Hello, world!", 13, file) != 13) {
-        printf("failed gridfs_write\n");
-        exit(1);
-    }
-
+    ASSERT((file = gridfs_open(gridfs, "myFile", "w")) != NULL);
+    ASSERT(gridfs_write("Hello, world!", 13, file) == 13);
     gridfs_close(file);
 
-    file = gridfs_open(gridfs, "myFile", "r");
-    if (file == NULL) {
-        printf("failed opening myFile for reading\n");
-        exit(1);
-    }
+    ASSERT((file = gridfs_open(gridfs, "myFile", "r")) != NULL);
+    ASSERT(strcmp(md5, gridfs_get_md5(file)) == 0);
 
-    if (strcmp(md5, gridfs_get_md5(file))) {
-        printf("md5 doesn't match\n");
-        exit(1);
-    }
-
-    if (gridfs_read(data, 13, file) != 13) {
-        printf("failed read\n");
-        exit(1);
-    }
+    ASSERT(gridfs_read(data, 13, file) == 13);
     data[13] = '\0';
+    ASSERT(strcmp(data, "Hello, world!") == 0);
 
-    if (strcmp(data, "Hello, world!")) {
-        printf("read bad data\n");
-        exit(1);
-    }
+    ASSERT(gridfs_seek(file, 2, SEEK_SET));
+    ASSERT(gridfs_tell(file) == 2);
 
-    if (!gridfs_seek(file, 2, SEEK_SET) || gridfs_tell(file) != 2) {
-        printf("failed seek\n");
-        exit(1);
-    }
-
-    if (gridfs_read(data, 11, file) != 11) {
-        printf("failed read after seek\n");
-        exit(1);
-    }
+    ASSERT(gridfs_read(data, 11, file) == 11);
     data[11] = '\0';
-
-    if (strcmp(data, "llo, world!")) {
-        printf("read bad data after seek %s\n", data);
-        exit(1);
-    }
-
+    ASSERT(strcmp(data, "llo, world!") == 0);
     gridfs_close(file);
 
-    file = gridfs_open(gridfs, "myFile2", "w");
-    gridfs_write("Line 1\nLine 2\nLine 3", 21, file);
+    ASSERT((file = gridfs_open(gridfs, "myFile2", "w")) != NULL);
+    ASSERT(gridfs_write("Line 1\nLine 2\nLine 3", 21, file) == 21);
     gridfs_close(file);
 
-    file = gridfs_open(gridfs, "myFile2", "r");
-    gridfs_gets(data, 13, file);
-    if(strcmp(data, "Line 1\n")) {
-        printf("bad gridfs_gets %s\n", data);
-        exit(1);
-    }
+    ASSERT((file = gridfs_open(gridfs, "myFile2", "r")) != NULL);
+    ASSERT(gridfs_gets(data, 13, file) != NULL);
+    ASSERT(strcmp(data, "Line 1\n") == 0);
 
-    gridfs_gets(data, 13, file);
-    if (strcmp(data, "Line 2\n")) {
-        printf("bad gridfs_gets\n");
-        exit(1);
-    }
+    ASSERT(gridfs_gets(data, 13, file) != NULL);
+    ASSERT(strcmp(data, "Line 2\n") == 0);
 
-    gridfs_gets(data, 13, file);
-    if (strcmp(data, "Line 3")) {
-        printf("bad gridfs_gets\n");
-        exit(1);
-    }
+    ASSERT(gridfs_gets(data, 13, file) != NULL);
+    ASSERT(strcmp(data, "Line 3") == 0);
 
-    if (gridfs_gets(data, 13, file) != NULL) {
-        printf("bad gridfs_gets\n");
-        exit(1);
-    }
+    ASSERT(gridfs_gets(data, 13, file) == NULL);
 
     gridfs_close(file);
     gridfs_disconnect(gridfs);
