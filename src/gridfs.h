@@ -28,6 +28,9 @@ off_t gridfs_tell(gridfs_file file);
 int gridfs_getc(gridfs_file file);
 char* gridfs_gets(gridfs_file file, char *string, size_t length);
 
+bson_bool_t gridfs_putc(gridfs_file file, char c);
+size_t gridfs_puts(gridfs_file file, const char *str);
+
 const char* gridfs_get_md5(gridfs_file file);
 const char* gridfs_get_filename(gridfs_file file);
 const char* gridfs_get_content_type(gridfs_file file);

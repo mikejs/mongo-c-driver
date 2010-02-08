@@ -402,6 +402,7 @@ size_t gridfs_write(gridfs_file file, const char *ptr, size_t size) {
     while (written < size) {
         size_t len = MIN(chunk_size - (pos % chunk_size),
                          size - written - (pos % chunk_size));
+        len = MIN(size, len);
 
         memcpy(data + (pos % chunk_size), ptr, len);
 
@@ -463,6 +464,14 @@ int gridfs_getc(gridfs_file file) {
     }
 
     return c[0];
+}
+
+bson_bool_t gridfs_putc(gridfs_file file, char c) {
+    return gridfs_write(file, &c, 1) == 1;
+}
+
+size_t gridfs_puts(gridfs_file file, const char *str) {
+    return gridfs_write(file, str, strlen(str));
 }
 
 char* gridfs_gets(gridfs_file file, char *string, size_t length) {

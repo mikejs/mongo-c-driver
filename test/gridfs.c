@@ -85,7 +85,8 @@ int main() {
     gridfs_close(file);
 
     ASSERT((file = gridfs_open(gridfs, "myFile2", "w")) != NULL);
-    ASSERT(gridfs_write(file, "Line 1\nLine 2\nLine 3", 21) == 21);
+    ASSERT(gridfs_puts(file, "Line 1\nLine 2\nLine ") == 19);
+    ASSERT(gridfs_putc(file, '3'));
     gridfs_close(file);
 
     ASSERT((file = gridfs_open(gridfs, "myFile2", "r")) != NULL);
