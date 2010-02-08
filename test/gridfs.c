@@ -12,6 +12,8 @@
         }\
     }while(0)
 
+#define BIG_LEN 525000
+
 int main() {
     mongo_connection conn[1];
     gridfs gridfs;
@@ -19,6 +21,7 @@ int main() {
     mongo_connection_options opts;
     bson b;
     char data[14];
+    char big[BIG_LEN], big2[BIG_LEN];
     const char *md5 = "6cd3556deb0da54bca060b4c39479839";
 
     strncpy(opts.host, TEST_SERVER, 255);
@@ -76,6 +79,20 @@ int main() {
     ASSERT(gridfs_gets(data, 13, file) == NULL);
 
     gridfs_close(file);
+
+    memset(big, 'a', BIG_LEN);
+    ASSERT((file = gridfs_open(gridfs, "bigFile", "w")) != NULL);
+    ASSERT(gridfs_write(big, BIG_LEN, file) == BIG_LEN);
+    gridfs_close(file);
+
+    memset(big2, 0, BIG_LEN);
+    ASSERT((file = gridfs_open(gridfs, "bigFile", "r")) != NULL);
+    ASSERT(gridfs_get_length(file) == BIG_LEN);
+    ASSERT(gridfs_read(big2, BIG_LEN, file) == BIG_LEN);
+    ASSERT(memcmp(big, big2, BIG_LEN) == 0);
+
+    gridfs_close(file);
+
     gridfs_disconnect(gridfs);
 
     return 0;

@@ -138,32 +138,31 @@ gridfs_file gridfs_open(gridfs gridfs, const char *name, const char *mode) {
 }
 
 size_t gridfs_write(const char *ptr, size_t size, gridfs_file file) {
-    size_t written, pos, chunk_size, length;
+    size_t written, pos, chunk_size;
     char *data;
 
     written = 0;
     pos = file->pos;
     chunk_size = file->chunk_size;
     data = file->data;
-    length = file->length;
 
     while (written < size) {
-        size_t len = MIN(chunk_size, size - written - (pos % chunk_size));
-        memcpy(data, ptr, len);
+        size_t len = MIN(chunk_size - (pos % chunk_size),
+                         size - written - (pos % chunk_size));
+
+        memcpy(data + (pos % chunk_size), ptr, len);
 
         pos += len;
-        length = MAX(pos, length);
+        ptr += len;
+        written += len;
+        file->length = MAX(pos, file->length);
 
         if (!(pos % chunk_size)) {
             gridfs_flush_chunk(file);
             file->cur_chunk++;
         }
-
-        ptr += len;
-        written += len;
     }
 
-    file->length = length;
     file->pos = pos;
 
     return written;
@@ -234,7 +233,6 @@ void gridfs_flush_chunk(gridfs_file file) {
     bson_append_long(&bb, "n", cur_chunk);
 
     size = MIN(chunk_size, length - (chunk_size * cur_chunk));
-
     bson_append_binary(&bb, "data", 0x02, file->data, size);
     bson_from_buffer(&b, &bb);
 
