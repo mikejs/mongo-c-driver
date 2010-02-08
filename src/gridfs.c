@@ -33,7 +33,6 @@ struct gridfs_file_t {
     char content_type[256];
     bson_oid_t id;
     time_t upload_date;
-    bson b;
     char *data;
     gridfs gridfs;
     char mode;
@@ -460,7 +459,6 @@ void gridfs_close(gridfs_file file) {
     if (file->mode == 'w') {
         gridfs_flush(file);
     }
-    bson_destroy(&file->b);
     free(file->filename);
     free(file->data);
     free(file);
