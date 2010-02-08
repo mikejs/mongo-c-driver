@@ -26,17 +26,13 @@ struct gridfs_t {
 };
 
 struct gridfs_file_t {
+    gridfs gridfs;
     size_t length, chunk_size, num_chunks, cur_chunk;
     off_t pos;
-    char *filename;
-    char md5[33];
-    char content_type[256];
+    char *filename, *data;
+    char mode, md5[33], content_type[256];
     time_t upload_date;
-    char *data;
-    gridfs gridfs;
-    char mode;
-    bson metadata;
-    bson id_b;
+    bson metadata, id_b;
     bson_iterator id;
 };
 
@@ -321,6 +317,7 @@ void gridfs_close(gridfs_file file) {
         gridfs_flush(file);
     }
     bson_destroy(&file->id_b);
+    bson_destroy(&file->metadata);
     free(file->filename);
     free(file->data);
     free(file);
