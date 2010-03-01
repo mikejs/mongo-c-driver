@@ -16,6 +16,7 @@ int main(){
     bson b;
     bson_iterator it, it2, it3;
     bson_oid_t oid;
+    bson_timestamp_t ts;
 
     bson_buffer_init(&bb);
     bson_append_double(&bb, "d", 3.14);
@@ -55,8 +56,11 @@ int main(){
         bson_destroy(&scope);
     }
 
-    /* no timestamp test (internal) */
     bson_append_long(&bb, "l", 0x1122334455667788);
+
+    ts.time = 123456;
+    ts.inc = 10;
+    bson_append_timestamp(&bb, "ts", &ts);
 
     bson_from_buffer(&b, &bb);
 
@@ -184,6 +188,13 @@ int main(){
     ASSERT(bson_iterator_type(&it) == bson_long);
     ASSERT(!strcmp(bson_iterator_key(&it), "l"));
     ASSERT(bson_iterator_long(&it) == 0x1122334455667788);
+
+    ASSERT(bson_iterator_more(&it));
+    ASSERT(bson_iterator_next(&it) == bson_timestamp);
+    ASSERT(bson_iterator_type(&it) == bson_timestamp);
+    ASSERT(!strcmp(bson_iterator_key(&it), "ts"));
+    ASSERT(bson_iterator_timestamp(&it)->time == 123456);
+    ASSERT(bson_iterator_timestamp(&it)->inc == 10);
 
     ASSERT(bson_iterator_more(&it));
     ASSERT(bson_iterator_next(&it) == bson_eoo);

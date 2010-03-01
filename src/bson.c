@@ -140,7 +140,6 @@ void bson_print_raw( const char * data , int depth ){
         switch ( t ){
         case bson_int: printf( "%d" , bson_iterator_int( &i ) ); break;
         case bson_double: printf( "%f" , bson_iterator_double( &i ) ); break;
-        case bson_timestamp:
         case bson_date:
         case bson_long: printf( "%"PRIi64, bson_iterator_long_raw( &i ) ); break;
         case bson_bool: printf( "%s" , bson_iterator_bool( &i ) ? "true" : "false" ); break;
@@ -152,6 +151,9 @@ void bson_print_raw( const char * data , int depth ){
             printf( "\n" );
             bson_print_raw( bson_iterator_value( &i ) , depth + 1 );
             break;
+        case bson_timestamp:
+            printf("%d %d", bson_iterator_timestamp(&i)->time,
+                  bson_iterator_timestamp(&i)->inc);
         default:
             fprintf( stderr , "can't print type : %d\n" , t );
         }
@@ -294,12 +296,8 @@ int64_t bson_iterator_long( const bson_iterator * i ){
         default: return 0;
     }
 }
-bson_timestamp_t bson_iterator_timestamp( const bson_iterator * i ){
-    if (bson_iterator_type(i) == bson_timestamp) {
-        return bson_iterator_long_raw(i);
-    }
-
-    return 0;
+bson_timestamp_t* bson_iterator_timestamp( const bson_iterator * i ){
+    return (bson_timestamp_t*)bson_iterator_value(i);
 }
 
 bson_bool_t bson_iterator_bool( const bson_iterator * i ){
@@ -469,9 +467,9 @@ bson_buffer * bson_append_long( bson_buffer * b , const char * name , const int6
     bson_append64( b , &i );
     return b;
 }
-bson_buffer * bson_append_timestamp( bson_buffer * b,  const char * name , const bson_timestamp_t ts) {
+bson_buffer * bson_append_timestamp( bson_buffer * b,  const char * name , const bson_timestamp_t * ts) {
     if ( ! bson_append_estart( b , bson_timestamp , name , 8 ) ) return 0;
-    bson_append64( b , &ts );
+    bson_append64( b , ts );
     return b;
 }
 bson_buffer * bson_append_double( bson_buffer * b , const char * name , const double d ){
