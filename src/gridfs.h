@@ -18,8 +18,8 @@ typedef struct {
 
 typedef struct {
     gridfs *gridfs;
-    size_t length, chunk_size, num_chunks, cur_chunk;
-    off_t pos;
+    int64_t length, num_chunks, cur_chunk, pos;
+    unsigned int chunk_size;
     char *filename, *data;
     char mode, md5[33], content_type[256];
     time_t upload_date;
@@ -37,7 +37,7 @@ void gridfs_flush(gridfs_file *file);
 size_t gridfs_read(gridfs_file *file, char *ptr, size_t size);
 size_t gridfs_write(gridfs_file *file, const char *ptr, size_t size);
 
-bson_bool_t gridfs_seek(gridfs_file *file, off_t offset, int origin);
+bson_bool_t gridfs_seek(gridfs_file *file, int64_t offset, int origin);
 off_t gridfs_tell(gridfs_file *file);
 
 int gridfs_getc(gridfs_file *file);
