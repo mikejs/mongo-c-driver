@@ -33,26 +33,26 @@ gridfs* gridfs_connect(mongo_connection *conn, const char *db_name) {
     bson_bool_t success = 0;
     gridfs *gridfs;
 
-    gridfs = malloc(sizeof(gridfs_file));
+    gridfs = bson_malloc(sizeof(gridfs_file));
 
-    ns = malloc(nslen);
+    ns = bson_malloc(nslen);
     strncpy(ns, db_name, dblen);
     strncat(ns, ".", 1);
     strncat(ns, prefix, preflen - 1);
 
     gridfs->conn = conn;
 
-    gridfs->db_name = malloc(dblen);
+    gridfs->db_name = bson_malloc(dblen);
     strncpy(gridfs->db_name, db_name, dblen);
 
-    gridfs->prefix = malloc(preflen);
+    gridfs->prefix = bson_malloc(preflen);
     strncpy(gridfs->prefix, prefix, preflen);
 
-    gridfs->file_ns = malloc(nslen);
+    gridfs->file_ns = bson_malloc(nslen);
     strncpy(gridfs->file_ns, ns, nslen);
     strncat(gridfs->file_ns, ".files", 6);
 
-    gridfs->chunk_ns = malloc(nslen + 7);
+    gridfs->chunk_ns = bson_malloc(nslen + 7);
     strncpy(gridfs->chunk_ns, ns, nslen);
     strncat(gridfs->chunk_ns, ".chunks", 7);
 
@@ -90,22 +90,12 @@ gridfs_file* gridfs_open(gridfs *gridfs, const char *name, const char *mode) {
         return gridfs_open_readonly(gridfs, name);
     } else if(!strcmp(mode, "w")) {
         gridfs_file *f;
-        char *filename, *data;
         bson_buffer bb;
 
-        f = calloc(1, sizeof(gridfs_file));
-        filename = malloc(strlen(name) + 1);
-        data = malloc(DEFAULT_CHUNK_SIZE);
-        if (f == NULL || filename == NULL || data == NULL) {
-            free(f);
-            free(filename);
-            free(data);
-            return NULL;
-        }
-
-        strcpy(filename, name);
-        f->filename = filename;
-        f->data = data;
+        f = bson_calloc(1, sizeof(gridfs_file));
+        f->filename = bson_malloc(strlen(name) + 1);
+        strcpy(f->filename, name);
+        f->data = bson_malloc(DEFAULT_CHUNK_SIZE);
         f->chunk_size = DEFAULT_CHUNK_SIZE;
         f->mode = 'w';
         f->gridfs = gridfs;
@@ -130,7 +120,6 @@ MONGO_INLINE gridfs_file* gridfs_open_readonly(gridfs *gridfs,
     bson_iterator it;
     gridfs_file *file;
     size_t chunk_size, length, flen;
-    char *data, *filename;
 
     bson_buffer_init(&bb);
     bson_append_string(&bb, "filename", name);
@@ -154,23 +143,16 @@ MONGO_INLINE gridfs_file* gridfs_open_readonly(gridfs *gridfs,
     }
     length = bson_iterator_long(&it);
 
-    file = calloc(1, sizeof(gridfs_file));
-    data = calloc(MIN(length, chunk_size), sizeof(char));
-    flen = strlen(name) + 1;
-    filename = malloc(flen);
-    if (file == NULL || data == NULL || filename == NULL) {
-        bson_destroy(&out);
-        free(file);
-        free(data);
-        free(filename);
-        return NULL;
-    }
+    file = bson_calloc(1, sizeof(gridfs_file));
 
     file->chunk_size = chunk_size;
     file->length = length;
-    strncpy(filename, name, flen);
-    file->filename = filename;
-    file->data = data;
+    
+    flen = strlen(name) + 1;
+    file->filename = bson_malloc(flen);
+    strncpy(file->filename, name, flen);
+
+    file->data = bson_calloc(MIN(length, chunk_size), sizeof(char));
     file->gridfs = gridfs;
 
     if (!bson_find(&it, &out, "md5")) {

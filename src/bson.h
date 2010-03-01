@@ -190,7 +190,9 @@ void bson_incnumstr(char* str);
    ERROR HANDLING - also used in mongo code
    ------------------------------ */
 
-void * bson_malloc(int size); /* checks return value */
+/* these both check return value */
+void * bson_malloc(int size);
+void * bson_calloc(size_t nelements, size_t elementSize);
 
 /* bson_err_handlers shouldn't return!!! */
 typedef void(*bson_err_handler)(const char* errmsg);

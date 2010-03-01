@@ -620,6 +620,12 @@ void* bson_malloc(int size){
     return p;
 }
 
+void* bson_calloc(size_t nelements, size_t elementSize) {
+    void *p = calloc(nelements, elementSize);
+    bson_fatal_msg(!!p, "calloc() failed");
+    return p;
+}
+
 static bson_err_handler err_handler = NULL;
 
 bson_err_handler set_bson_err_handler(bson_err_handler func){
