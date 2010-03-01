@@ -31,6 +31,7 @@ gridfs* gridfs_connect(mongo_connection *conn, const char *db_name);
 void gridfs_disconnect(gridfs *gridfs);
 
 gridfs_file* gridfs_open(gridfs *gridfs, const char *name, const char *mode);
+gridfs_file* gridfs_query(gridfs *gridfs, bson *query);
 void gridfs_close(gridfs_file *file);
 void gridfs_flush(gridfs_file *file);
 

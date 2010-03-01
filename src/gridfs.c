@@ -113,29 +113,41 @@ gridfs_file* gridfs_open(gridfs *gridfs, const char *name, const char *mode) {
     }
 }
 
+
 MONGO_INLINE gridfs_file* gridfs_open_readonly(gridfs *gridfs,
                                                const char *name) {
     bson_buffer bb;
-    bson b, out;
-    bson_iterator it;
+    bson b;
     gridfs_file *file;
-    size_t chunk_size, length, flen;
 
     bson_buffer_init(&bb);
     bson_append_string(&bb, "filename", name);
     bson_from_buffer(&b, &bb);
 
-    if (!mongo_find_one(gridfs->conn, gridfs->file_ns, &b, NULL, &out)) {
-        bson_destroy(&b);
+    file = gridfs_query(gridfs, &b);
+    bson_destroy(&b);
+
+    return file;
+}
+
+gridfs_file* gridfs_query(gridfs *gridfs, bson *query) {
+    bson_buffer bb;
+    bson_iterator it;
+    bson out;
+    gridfs_file *file;
+    unsigned int chunk_size;
+    int64_t length;
+    const char *name;
+
+    if (!mongo_find_one(gridfs->conn, gridfs->file_ns, query, NULL, &out)) {
         return NULL;
     }
-    bson_destroy(&b);
 
     if (!bson_find(&it, &out, "chunkSize")) {
         bson_destroy(&out);
         return NULL;
     }
-    chunk_size = bson_iterator_long(&it);
+    chunk_size = bson_iterator_int(&it);
 
     if (!bson_find(&it, &out, "length")) {
         bson_destroy(&out);
@@ -143,14 +155,19 @@ MONGO_INLINE gridfs_file* gridfs_open_readonly(gridfs *gridfs,
     }
     length = bson_iterator_long(&it);
 
+    if (!bson_find(&it, &out, "filename")) {
+        bson_destroy(&out);
+        return NULL;
+    }
+    name = bson_iterator_string(&it);
+
     file = bson_calloc(1, sizeof(gridfs_file));
 
     file->chunk_size = chunk_size;
     file->length = length;
-    
-    flen = strlen(name) + 1;
-    file->filename = bson_malloc(flen);
-    strncpy(file->filename, name, flen);
+
+    file->filename = bson_malloc(strlen(name) + 1);
+    strcpy(file->filename, name);
 
     file->data = bson_calloc(MIN(length, chunk_size), sizeof(char));
     file->gridfs = gridfs;
