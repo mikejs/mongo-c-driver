@@ -58,8 +58,11 @@ typedef union{
 } bson_oid_t;
 #pragma pack()
 
+typedef struct {
+    int time, inc;
+} bson_timestamp_t;
+
 typedef int64_t bson_date_t; /* milliseconds since epoch UTC */
-typedef int64_t bson_timestamp_t;
 
 /* ----------------------------
    READING
@@ -94,7 +97,7 @@ const char * bson_iterator_value( const bson_iterator * i );
 double bson_iterator_double( const bson_iterator * i );
 int bson_iterator_int( const bson_iterator * i );
 int64_t bson_iterator_long( const bson_iterator * i );
-bson_timestamp_t bson_iterator_timestamp( const bson_iterator * i );
+bson_timestamp_t* bson_iterator_timestamp( const bson_iterator * i );
 
 /* false: boolean false, 0 in any type, or null */
 /* true: anything else (even empty strings and objects) */
@@ -157,7 +160,7 @@ bson_buffer * bson_append_oid( bson_buffer * b , const char * name , const bson_
 bson_buffer * bson_append_new_oid( bson_buffer * b , const char * name );
 bson_buffer * bson_append_int( bson_buffer * b , const char * name , const int i );
 bson_buffer * bson_append_long( bson_buffer * b , const char * name , const int64_t i );
-bson_buffer * bson_append_timestamp( bson_buffer * b, const char * name , const bson_timestamp_t ts);
+bson_buffer * bson_append_timestamp( bson_buffer * b, const char * name , const bson_timestamp_t * ts);
 bson_buffer * bson_append_double( bson_buffer * b , const char * name , const double d );
 bson_buffer * bson_append_string( bson_buffer * b , const char * name , const char * str );
 bson_buffer * bson_append_symbol( bson_buffer * b , const char * name , const char * str );
