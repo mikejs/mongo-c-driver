@@ -16,12 +16,11 @@
 
 int main() {
     mongo_connection conn[1];
-    gridfs gridfs;
-    gridfs_file file;
+    gridfs *gridfs;
+    gridfs_file *file;
     mongo_connection_options opts;
     bson b;
     bson_buffer bb;
-    const bson *metadata;
     bson_iterator it;
     char data[14];
     char big[BIG_LEN], big2[BIG_LEN];
@@ -52,16 +51,13 @@ int main() {
     bson_buffer_init(&bb);
     bson_append_string(&bb, "str", "some metadata");
     bson_append_int(&bb, "int", 42);
-    bson_from_buffer(&b, &bb);
-    gridfs_set_metadata(file, &b);
-    bson_destroy(&b);
-
-    gridfs_set_content_type(file, "text/plain");
+    bson_from_buffer(&file->metadata, &bb);
+    strcpy(file->content_type, "text/plain");
 
     gridfs_close(file);
 
     ASSERT((file = gridfs_open(gridfs, "myFile", "r")) != NULL);
-    ASSERT(strcmp(md5, gridfs_get_md5(file)) == 0);
+    ASSERT(strcmp(md5, file->md5) == 0);
 
     ASSERT(gridfs_read(file, data, 13) == 13);
     data[13] = '\0';
@@ -74,13 +70,12 @@ int main() {
     data[11] = '\0';
     ASSERT(strcmp(data, "llo, world!") == 0);
 
-    metadata = gridfs_get_metadata(file);
-    ASSERT(bson_find(&it, metadata, "str"));
+    ASSERT(bson_find(&it, &file->metadata, "str"));
     ASSERT(strcmp(bson_iterator_string(&it), "some metadata") == 0);
-    ASSERT(bson_find(&it, metadata, "int"));
+    ASSERT(bson_find(&it, &file->metadata, "int"));
     ASSERT(bson_iterator_int(&it) == 42);
 
-    ASSERT(strcmp(gridfs_get_content_type(file), "text/plain") == 0);
+    ASSERT(strcmp(file->content_type, "text/plain") == 0);
 
     gridfs_close(file);
 
@@ -110,7 +105,7 @@ int main() {
 
     memset(big2, 0, BIG_LEN);
     ASSERT((file = gridfs_open(gridfs, "bigFile", "r")) != NULL);
-    ASSERT(gridfs_get_length(file) == BIG_LEN);
+    ASSERT(file->length == BIG_LEN);
     ASSERT(gridfs_read(file, big2, BIG_LEN) == BIG_LEN);
     ASSERT(memcmp(big, big2, BIG_LEN) == 0);
 
