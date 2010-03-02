@@ -39,7 +39,7 @@ size_t gridfs_read(gridfs_file *file, char *ptr, size_t size);
 size_t gridfs_write(gridfs_file *file, const char *ptr, size_t size);
 
 bson_bool_t gridfs_seek(gridfs_file *file, int64_t offset, int origin);
-off_t gridfs_tell(gridfs_file *file);
+int64_t gridfs_tell(gridfs_file *file);
 
 int gridfs_getc(gridfs_file *file);
 char* gridfs_gets(gridfs_file *file, char *string, size_t length);

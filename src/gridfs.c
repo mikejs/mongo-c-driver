@@ -421,7 +421,7 @@ bson_bool_t gridfs_seek(gridfs_file *file, off_t offset, int origin) {
     return 1;
 }
 
-off_t gridfs_tell(gridfs_file *file) {
+int64_t gridfs_tell(gridfs_file *file) {
     return file->pos;
 }
 
