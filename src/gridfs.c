@@ -19,8 +19,6 @@
 
 static bson_bool_t gridfs_read_chunk(gridfs_file *file, size_t n);
 static void gridfs_flush_chunk(gridfs_file *file);
-MONGO_INLINE gridfs_file* gridfs_open_readonly(gridfs *gridfs,
-                                               const char *name);
 
 gridfs* gridfs_connect(mongo_connection *conn, const char *db_name) {
     const char prefix[] = "fs";  /* TODO: allow custom prefix */
@@ -86,48 +84,40 @@ void gridfs_disconnect(gridfs *gridfs) {
 }
 
 gridfs_file* gridfs_open(gridfs *gridfs, const char *name, const char *mode) {
-    if (!strcmp(mode, "r")) {
-        return gridfs_open_readonly(gridfs, name);
-    } else if(!strcmp(mode, "w")) {
-        gridfs_file *f;
-        bson_buffer bb;
+    bson_buffer bb;
+    gridfs_file *file;
 
-        f = bson_calloc(1, sizeof(gridfs_file));
-        f->filename = bson_malloc(strlen(name) + 1);
-        strcpy(f->filename, name);
-        f->data = bson_malloc(DEFAULT_CHUNK_SIZE);
-        f->chunk_size = DEFAULT_CHUNK_SIZE;
-        f->mode = 'w';
-        f->gridfs = gridfs;
+    if (!strcmp(mode, "r")) {
+        bson b;
+
+        bson_buffer_init(&bb);
+        bson_append_string(&bb, "filename", name);
+        bson_from_buffer(&b, &bb);
+
+        file = gridfs_query(gridfs, &b);
+        bson_destroy(&b);
+
+        return file;
+    } else if(!strcmp(mode, "w")) {
+        file = bson_calloc(1, sizeof(gridfs_file));
+        file->filename = bson_malloc(strlen(name) + 1);
+        strcpy(file->filename, name);
+        file->data = bson_malloc(DEFAULT_CHUNK_SIZE);
+        file->chunk_size = DEFAULT_CHUNK_SIZE;
+        file->mode = 'w';
+        file->gridfs = gridfs;
 
         bson_buffer_init(&bb);
         bson_append_new_oid(&bb, "_id");
-        bson_from_buffer(&f->id_b, &bb);
-        bson_find(&f->id, &f->id_b, "_id");
+        bson_from_buffer(&file->id_b, &bb);
+        bson_find(&file->id, &file->id_b, "_id");
 
-        bson_empty(&f->metadata);
+        bson_empty(&file->metadata);
 
-        return f;
+        return file;
     } else {
         return NULL;
     }
-}
-
-
-MONGO_INLINE gridfs_file* gridfs_open_readonly(gridfs *gridfs,
-                                               const char *name) {
-    bson_buffer bb;
-    bson b;
-    gridfs_file *file;
-
-    bson_buffer_init(&bb);
-    bson_append_string(&bb, "filename", name);
-    bson_from_buffer(&b, &bb);
-
-    file = gridfs_query(gridfs, &b);
-    bson_destroy(&b);
-
-    return file;
 }
 
 gridfs_file* gridfs_query(gridfs *gridfs, bson *query) {
